@@ -18,6 +18,23 @@ import web_ops
 
 st.set_page_config(page_title="키워드 리서치 리포트 생성기", layout="wide")
 
+# 탭 메뉴를 스크롤해도 상단에 고정
+st.markdown(
+    """
+    <style>
+    .stTabs [data-baseweb="tab-list"] {
+        position: sticky;
+        top: 0;
+        z-index: 999;
+        background-color: #0e1117; /* 다크 테마 배경색과 맞춤. 라이트 테마 쓰시면 #ffffff로 바꿔주세요 */
+        padding-top: 0.5rem;
+        padding-bottom: 0.25rem;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 KW_COLUMNS = ["keyword", "volume", "competition", "trend", "intent", "opportunity"]
 TREND_COLUMNS = ["name", "values_csv"]
 SOURCE_COLUMNS = ["point", "source"]

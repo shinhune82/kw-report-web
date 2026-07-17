@@ -391,9 +391,8 @@ if current_page == PAGE_NAMES[1]:
                     if fstats:
                         msg_parts.append(
                             f"↳ 조회 전 필터링: 전체 {fstats['total_candidates_before_filter']}개 중 "
-                            f"경쟁도 미상 {fstats['excluded_no_competition']}개, "
-                            f"1차 기회도 Low {fstats['excluded_low_opportunity']}개를 제외하고 "
-                            f"{fstats['selected_count']}개만 조회 대상으로 선정했습니다."
+                            f"경쟁도 미상(데이터 없음) {fstats['excluded_no_competition']}개를 제외하고, "
+                            f"검색량 상위 {fstats['selected_count']}개를 조회 대상으로 선정했습니다."
                         )
                     if trend_stats.get("rate_limited"):
                         msg_parts.append("⚠️ Google Trends 요청 제한으로 중단됨. 잠시 후 다시 시도하세요.")

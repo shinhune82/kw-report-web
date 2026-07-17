@@ -82,30 +82,21 @@ def judge_trend_opportunity(rows, trend_series, language="EN"):
 
 def select_trend_candidates(rows, existing_trend_series, max_keywords=30):
     """
-    Google Trends 조회 대상을 고를 때, 무작정 검색량 상위만 보는 게 아니라
-    '트렌드 없이도 이미 승산이 낮아 보이는' 키워드는 미리 걸러냅니다:
-    - 경쟁도 값이 비어있는(알 수 없는) 키워드는 제외
-    - 검색량+경쟁도만으로 계산한 1차 기회도가 'Low'인 키워드는 제외
-      (트렌드는 기회도 점수의 일부일 뿐이라, 트렌드 없이 이미 Low면 트렌드가 붙어도
-      뒤집힐 가능성이 낮습니다)
-    남은 키워드 중 검색량 상위 max_keywords개만 최종 후보로 선정합니다.
+    Google Trends 조회 대상을 검색량 기준으로 고릅니다.
+    경쟁도 값이 아예 없는(데이터 품질 문제) 키워드만 제외하고, 그 외에는
+    경쟁도가 Low든 High든 상관없이 검색량이 큰 순서대로 상위 max_keywords개를 선정합니다.
+
+    (참고: 예전 버전은 '검색량+경쟁도로 계산한 1차 기회도가 Low면 제외'하는 규칙이었는데,
+    Keyword Planner의 '경쟁도'는 광고 입찰 경쟁이지 SEO 난이도가 아니라서, 경쟁도가 High여도
+    검색량이 크면 여전히 확인해볼 가치가 있는 키워드일 수 있습니다. 그래서 경쟁도를 기준으로
+    미리 배제하지 않도록 단순화했습니다.)
     """
     existing_names = {s["name"].strip().lower() for s in existing_trend_series}
 
     candidates_pool = [r for r in rows if r["keyword"].strip().lower() not in existing_names]
 
-    all_volumes = []
-    for r in candidates_pool:
-        vol_raw = str(r.get("volume", "")).replace(",", "").strip()
-        if vol_raw:
-            try:
-                all_volumes.append(float(vol_raw))
-            except ValueError:
-                pass
-
     filtered = []
     excluded_no_competition = 0
-    excluded_low_opportunity = 0
 
     for r in candidates_pool:
         competition = str(r.get("competition", "")).strip()
@@ -115,23 +106,18 @@ def select_trend_candidates(rows, existing_trend_series, max_keywords=30):
 
         vol_raw = str(r.get("volume", "")).replace(",", "").strip()
         try:
-            vol = float(vol_raw) if vol_raw else None
+            vol = float(vol_raw) if vol_raw else -1
         except ValueError:
-            vol = None
+            vol = -1
 
-        prelim_opportunity = auto_draft.compute_opportunity(vol, competition, None, all_volumes)
-        if prelim_opportunity == "Low":
-            excluded_low_opportunity += 1
-            continue
-
-        filtered.append((r["keyword"], vol if vol is not None else -1))
+        filtered.append((r["keyword"], vol))
 
     filtered.sort(key=lambda x: x[1], reverse=True)
     selected = [kw for kw, _ in filtered[:max_keywords]]
 
     return selected, {
         "excluded_no_competition": excluded_no_competition,
-        "excluded_low_opportunity": excluded_low_opportunity,
+        "excluded_low_opportunity": 0,  # 더 이상 이 기준으로 제외하지 않음 (하위 호환을 위해 필드는 유지)
         "total_candidates_before_filter": len(candidates_pool),
         "selected_count": len(selected),
     }

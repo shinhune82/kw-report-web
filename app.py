@@ -18,23 +18,6 @@ import web_ops
 
 st.set_page_config(page_title="키워드 리서치 리포트 생성기", layout="wide")
 
-# 탭 메뉴를 스크롤해도 상단에 고정
-st.markdown(
-    """
-    <style>
-    .stTabs [data-baseweb="tab-list"] {
-        position: sticky;
-        top: 0;
-        z-index: 999;
-        background-color: #0e1117; /* 다크 테마 배경색과 맞춤. 라이트 테마 쓰시면 #ffffff로 바꿔주세요 */
-        padding-top: 0.5rem;
-        padding-bottom: 0.25rem;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
 KW_COLUMNS = ["keyword", "volume", "competition", "trend", "intent", "opportunity"]
 TREND_COLUMNS = ["name", "values_csv"]
 SOURCE_COLUMNS = ["point", "source"]
@@ -152,8 +135,12 @@ def current_trend_series():
 
 
 # ============================================================
-# 사이드바: 진행 흐름 안내 + 전체 초기화
+# 사이드바: 진행 흐름 안내 + 전체 초기화 + 실제 네비게이션
 # ============================================================
+PAGE_NAMES = ["1. 기본 정보", "2. 키워드 데이터", "3. 트렌드 그래프", "4. 데이터 출처", "5. 클러스터", "6. 제안 & 생성"]
+if "current_page" not in st.session_state:
+    st.session_state.current_page = PAGE_NAMES[0]
+
 with st.sidebar:
     st.title("📊 키워드 리서치\n리포트 생성기")
     st.caption("Fiverr Gig용 PDF 리포트를 만드는 웹 버전입니다.")
@@ -161,23 +148,21 @@ with st.sidebar:
         reset_all()
         st.rerun()
     st.divider()
-    st.markdown(
-        "**사용 순서**\n"
-        "1. 기본 정보\n"
-        "2. 키워드 데이터\n"
-        "3. 트렌드 그래프\n"
-        "4. 데이터 출처\n"
-        "5. 클러스터\n"
-        "6. 제안 & 생성"
+    st.markdown("**사용 순서** (클릭하면 이동)")
+    st.session_state.current_page = st.radio(
+        "이동", PAGE_NAMES, index=PAGE_NAMES.index(st.session_state.current_page),
+        label_visibility="collapsed", key="nav_radio",
     )
 
-tabs = st.tabs(["1. 기본 정보", "2. 키워드 데이터", "3. 트렌드 그래프", "4. 데이터 출처", "5. 클러스터", "6. 제안 & 생성"])
+current_page = st.session_state.current_page
+st.markdown(f"### {current_page}")
+st.divider()
 
 
 # ============================================================
 # TAB 1: 기본 정보
 # ============================================================
-with tabs[0]:
+if current_page == PAGE_NAMES[0]:
     col1, col2 = st.columns(2)
     with col1:
         st.session_state.language = st.radio(
@@ -245,7 +230,7 @@ with tabs[0]:
 # ============================================================
 # TAB 2: 키워드 데이터
 # ============================================================
-with tabs[1]:
+if current_page == PAGE_NAMES[1]:
     st.subheader("0단계 — 시드 키워드 아이디어")
     st.caption("아직 검색할 키워드가 없다면 여기서 시작하세요. 니치명 + 언어 설정에 맞춰 후보를 만들어줍니다.")
     if st.button("✏️ 니치명으로 시드 키워드 생성"):
@@ -434,7 +419,7 @@ with tabs[1]:
 # ============================================================
 # TAB 3: 트렌드 그래프
 # ============================================================
-with tabs[2]:
+if current_page == PAGE_NAMES[2]:
     st.subheader("Google Trends 자동 조회 (수동)")
     existing_keywords = [r["keyword"] for r in st.session_state.keyword_rows if r.get("keyword")]
     seed_for_trend = ", ".join(existing_keywords[:5])
@@ -500,7 +485,7 @@ with tabs[2]:
 # ============================================================
 # TAB 4: 데이터 출처
 # ============================================================
-with tabs[3]:
+if current_page == PAGE_NAMES[3]:
     st.caption("자동조회/불러오기 시 자동 기록됩니다. 수동 입력분은 직접 추가해주세요.")
     src_df = st.data_editor(
         sources_to_df(st.session_state.sources),
@@ -513,7 +498,7 @@ with tabs[3]:
 # ============================================================
 # TAB 5: 클러스터
 # ============================================================
-with tabs[4]:
+if current_page == PAGE_NAMES[4]:
     if st.button("🪄 키워드 표에서 자동 클러스터 생성"):
         clusters, stats = web_ops.auto_build_clusters(
             st.session_state.keyword_rows, st.session_state.clusters, language=st.session_state.language
@@ -541,7 +526,7 @@ with tabs[4]:
 # ============================================================
 # TAB 6: 제안 & 생성
 # ============================================================
-with tabs[5]:
+if current_page == PAGE_NAMES[5]:
     st.markdown("**실행 제안 (한 줄에 하나씩)**")
     rcol1, rcol2 = st.columns(2)
     with rcol1:

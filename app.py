@@ -246,6 +246,59 @@ if current_page == PAGE_NAMES[1]:
                    "실제 검색어인지는 아니고, 확장을 위한 출발점일 뿐입니다.")
 
     st.divider()
+    st.subheader("0.5단계 — 자동완성 확장 (실제 사람들이 검색하는 표현 찾기)")
+    example_term = "유아 카시트" if st.session_state.language == "KR" else "baby car seat"
+    engines_desc = "Google + Naver" if st.session_state.language == "KR" else "Google"
+    st.caption(
+        f"'{example_term}' 같은 기본어에 질문형 수식어를 붙여서, {engines_desc} 자동완성이 실제로 "
+        "어떤 문장을 완성해주는지 찾아냅니다. 맘카페/포럼 글 뒤져서 진짜 고민 언어를 찾는 것과 "
+        "비슷한 효과를 자동으로 냅니다. (현재 언어 설정에 따라 자동으로 한글/영어 수식어와 "
+        f"검색엔진이 결정됩니다: {engines_desc})"
+    )
+    pain_base = st.text_input(f"기본 검색어 (예: {example_term})", key="pain_base_input")
+    if st.button("🔎 질문형 조합으로 자동완성 조회"):
+        if not pain_base.strip():
+            st.warning("기본 검색어를 입력해주세요.")
+        else:
+            queries = web_ops.generate_pain_point_queries(pain_base, language=st.session_state.language)
+            progress_bar = st.progress(0, text="자동완성 조회 준비 중...")
+
+            def ac_progress_cb(i, total):
+                progress_bar.progress(i / total, text=f"자동완성 조회 중... ({i}/{total})")
+
+            suggestions, stats = web_ops.expand_via_autocomplete(
+                queries, language=st.session_state.language, progress_cb=ac_progress_cb
+            )
+            progress_bar.empty()
+            if suggestions:
+                st.session_state["pain_point_suggestions"] = suggestions
+                st.success(f"{stats['queries_tried']}개 조합 조회, {stats['found']}개 표현 발견 "
+                           + (f"({stats['errors']}개 조회 실패)" if stats["errors"] else ""))
+            else:
+                st.warning("찾은 표현이 없습니다. 기본 검색어를 바꿔서 다시 시도해보세요.")
+
+    if st.session_state.get("pain_point_suggestions"):
+        st.multiselect(
+            "발견된 표현 (원하는 것만 골라서 아래 버튼으로 키워드 표에 추가)",
+            options=st.session_state["pain_point_suggestions"],
+            default=st.session_state["pain_point_suggestions"],
+            key="pain_point_selected",
+        )
+        if st.button("➕ 선택한 표현을 키워드 표에 추가"):
+            selected = st.session_state.get("pain_point_selected", [])
+            existing = {r["keyword"].strip().lower() for r in st.session_state.keyword_rows}
+            added = 0
+            for kw in selected:
+                if kw.strip().lower() not in existing:
+                    st.session_state.keyword_rows.append(
+                        {"keyword": kw, "volume": "", "competition": "", "trend": "", "intent": "", "opportunity": ""}
+                    )
+                    existing.add(kw.strip().lower())
+                    added += 1
+            st.success(f"{added}개를 키워드 표에 추가했습니다 (검색량 등은 Keyword Planner에서 조회해서 채워주세요).")
+            st.rerun()
+
+    st.divider()
     st.subheader("1단계 — 검색량 조회 사이트 바로가기")
     lcol1, lcol2, lcol3 = st.columns(3)
     with lcol1:

@@ -18,6 +18,74 @@ import report_engine
 
 KW_KEYS = ["keyword", "volume", "competition", "trend", "intent", "opportunity"]
 
+PAIN_POINT_MODIFIERS_KR = [
+    "언제", "왜", "어떻게", "방법", "추천", "후기", "증상", "원인", "괜찮나요", "안전한가요",
+]
+
+PAIN_POINT_MODIFIERS_EN = [
+    "when", "why", "how to", "safe", "reviews", "recommendations", "vs", "not working", "alternative", "problems",
+]
+
+
+def generate_pain_point_queries(base_term, language=None, modifiers=None):
+    """
+    기본 검색어에 질문형 수식어를 붙여서, 자동완성 조회에 넣을 조합을 만든다.
+    language="KR"이면 한글 수식어(언제/왜/방법 등), "EN"이면 영어 수식어(when/why/how to 등).
+    language를 안 주면 base_term에 한글이 섞였는지로 자동 판단한다.
+    """
+    base = (base_term or "").strip()
+    if not base:
+        return []
+
+    if modifiers is not None:
+        mods = modifiers
+    elif language == "KR":
+        mods = PAIN_POINT_MODIFIERS_KR
+    elif language == "EN":
+        mods = PAIN_POINT_MODIFIERS_EN
+    else:
+        mods = PAIN_POINT_MODIFIERS_KR if auto_draft.contains_korean(base) else PAIN_POINT_MODIFIERS_EN
+
+    return [f"{base} {m}" for m in mods]
+
+
+def expand_via_autocomplete(queries, language="KR", progress_cb=None):
+    """
+    질문형 조합 목록을 자동완성에 넣어서 실제 검색 표현들을 모은다.
+    language="KR"이면 Google + Naver 둘 다 조회해서 합친다 (한국은 네이버 검색 비중이 커서).
+    그 외(예: "EN")에는 Google만 조회한다.
+    """
+    all_suggestions = []
+    seen = set()
+    errors = 0
+    hl = "ko" if language == "KR" else "en"
+
+    for i, q in enumerate(queries, start=1):
+        if progress_cb:
+            progress_cb(i, len(queries))
+
+        try:
+            suggestions = data_sources.fetch_autocomplete_suggestions(q, hl=hl)
+        except Exception:
+            suggestions = []
+            errors += 1
+
+        if language == "KR":
+            try:
+                naver_suggestions = data_sources.fetch_naver_autocomplete_suggestions(q)
+            except Exception:
+                naver_suggestions = []
+                errors += 1
+            suggestions = suggestions + naver_suggestions
+
+        for s in suggestions:
+            norm = s.strip()
+            if norm and norm.lower() not in seen:
+                seen.add(norm.lower())
+                all_suggestions.append(norm)
+
+    return all_suggestions, {"queries_tried": len(queries), "errors": errors, "found": len(all_suggestions)}
+
 
 def normalize_enums(rows):
     """경쟁도/트렌드/의도/기회도 값의 한글 표기를 영어로 정규화. (키워드 자체는 건드리지 않음)"""

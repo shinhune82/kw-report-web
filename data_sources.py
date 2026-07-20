@@ -16,6 +16,79 @@ import os
 # ------------------------------------------------------------------
 # 1) Google Trends 자동 조회
 # ------------------------------------------------------------------
+def fetch_naver_autocomplete_suggestions(query):
+    """
+    네이버 자동완성 제안을 가져옵니다 (네이버 검색창이 쓰는 공개 엔드포인트,
+    Google Suggest와 비슷한 성격 — 로그인/카페 글 같은 폐쇄 공간이 아니라
+    누구나 브라우저에서 그냥 검색창에 타이핑하면 보이는 공개 기능입니다).
+    """
+    try:
+        import requests
+    except ImportError:
+        raise RuntimeError(
+            "requests 패키지가 설치되어 있지 않습니다. cmd에서 'pip install requests' 실행 후 다시 시도해주세요."
+        )
+
+    query = (query or "").strip()
+    if not query:
+        raise ValueError("검색어를 입력해주세요.")
+
+    url = "https://ac.search.naver.com/nx/ac"
+    params = {
+        "q": query, "con": "0", "frm": "nv", "ans": "2",
+        "r_format": "json", "r_enc": "UTF-8", "r_unicode": "0",
+        "t_koreng": "1", "run": "2", "rev": "4", "q_enc": "UTF-8", "st": "100",
+    }
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+    try:
+        resp = requests.get(url, params=params, headers=headers, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        raise RuntimeError(f"네이버 자동완성 조회에 실패했습니다: {e}")
+
+    suggestions = []
+    try:
+        groups = data.get("items", [])
+        if groups:
+            for entry in groups[0]:
+                if entry and entry[0]:
+                    suggestions.append(str(entry[0]).strip())
+    except Exception:
+        pass  # 응답 구조가 예상과 다르면 빈 리스트로 처리 (에러로 전체를 막지 않음)
+
+    return [s for s in suggestions if s]
+
+
+def fetch_autocomplete_suggestions(query, hl="ko"):
+    """
+    Google 자동완성 제안을 가져옵니다 (비공식 엔드포인트 — pytrends와 비슷한 성격의 접근 방식).
+    실제 사람들이 검색창에 이어서 치는 표현을 찾는 용도 (예: '유아 카시트 언제' -> '유아 카시트 언제까지').
+    """
+    try:
+        import requests
+    except ImportError:
+        raise RuntimeError(
+            "requests 패키지가 설치되어 있지 않습니다. cmd에서 'pip install requests' 실행 후 다시 시도해주세요."
+        )
+
+    query = (query or "").strip()
+    if not query:
+        raise ValueError("검색어를 입력해주세요.")
+
+    url = "https://suggestqueries.google.com/complete/search"
+    params = {"client": "firefox", "q": query, "hl": hl}
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+    try:
+        resp = requests.get(url, params=params, headers=headers, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+        suggestions = data[1] if len(data) > 1 else []
+        return [s for s in suggestions if s and s.strip()]
+    except Exception as e:
+        raise RuntimeError(f"자동완성 조회에 실패했습니다: {e}")
+
+
 def fetch_google_trends(keywords, timeframe="today 12-m", geo=""):
     """
     keywords: list[str], 최대 5개 (Google Trends 제한)

@@ -255,7 +255,20 @@ if current_page == PAGE_NAMES[1]:
         "비슷한 효과를 자동으로 냅니다. (현재 언어 설정에 따라 자동으로 한글/영어 수식어와 "
         f"검색엔진이 결정됩니다: {engines_desc})"
     )
-    pain_base = st.text_input(f"기본 검색어 (예: {example_term})", key="pain_base_input")
+    if "pain_base_input" not in st.session_state:
+        st.session_state["pain_base_input"] = st.session_state.niche
+
+    pbcol1, pbcol2 = st.columns([4, 1])
+    with pbcol1:
+        pain_base = st.text_input(
+            f"기본 검색어 (예: {example_term}) — 니치명이 기본으로 채워집니다, 더 구체적인 하위주제로 바꿔도 됩니다",
+            key="pain_base_input",
+        )
+    with pbcol2:
+        st.write("")  # 버튼 세로 정렬용 여백
+        if st.button("🔄 니치명으로 채우기"):
+            st.session_state["pain_base_input"] = st.session_state.niche
+            st.rerun()
     if st.button("🔎 질문형 조합으로 자동완성 조회"):
         if not pain_base.strip():
             st.warning("기본 검색어를 입력해주세요.")
